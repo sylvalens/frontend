@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SylvaLens - Frontend
 
-## Getting Started
+The user interface for the SylvaLens forest analytics platform, built with **Next.js (App Router)** and **Mapbox GL JS**.
 
-First, run the development server:
+## Features
+- **Interactive Map:** Explore administrative boundaries, cadastre parcels, and BD Forêt classifications.
+- **Custom Analytics:** Draw polygons to trigger spatial analytics (FORMS-T, Hansen, LiDAR).
+- **Report Generation:** Download CSV and PDF reports.
+- **Contract-Driven API:** Uses `openapi-typescript` for end-to-end type safety with the backend services.
 
+## Development Setup
+
+### Prerequisites
+- Node.js (v20+)
+- pnpm
+- Mapbox Access Token
+
+### 1. Configuration
+Copy the `.env.example` file to `.env.local` and add your Mapbox token:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
+```
+Fill in:
+`NEXT_PUBLIC_MAPBOX_TOKEN=pk.your_token_here`
+
+### 2. Generate API Types
+To ensure type safety with the backend and raster services (which must be running locally):
+```bash
+pnpm run generate:api
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Run Development Server
+```bash
+pnpm install
+pnpm run dev
+```
+The application will be available at `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Production Build
+This Next.js application is configured to build as `standalone` for optimized Docker deployments.
+```bash
+pnpm run build
+```
+See the `sylvalens/infra` repository for production deployment orchestration.
