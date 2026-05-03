@@ -34,255 +34,40 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
 
-type FeatureCollection = {
-  type: 'FeatureCollection';
-  features: GeoJSONFeature[];
-};
-
-type Region = {
-  codeInsee: string;
-  nomOfficiel: string;
-};
-
-type Department = {
-  codeInsee: string;
-  codeInseeRegion: string;
-  nomOfficiel: string;
-};
-
-type Commune = {
-  id: string;
-  name: string;
-};
-
-type LieuDit = {
-  id: number;
-  name: string;
-  communeId: string;
-};
-
-type ForestClass = {
-  code: string;
-  label: string;
-};
-
-type MapState = {
-  center: { lon: number; lat: number };
-  zoom: number;
-  selectedRegion?: string | null;
-  selectedDepartment?: string | null;
-  selectedCommune?: string | null;
-  selectedLieuDit?: string | null;
-  basemapMode?: 'map' | 'satellite';
-  activeForestClassCodes?: string[];
-};
-
-type RasterStat = {
-  mean: number;
-  min: number;
-  max: number;
-  std: number;
-  median: number;
-  unit: string;
-};
-
-type PolygonStats = {
-  areaHa: number;
-  totalForestAreaHa: number;
-  parcelIds: string[];
-  treeSpecies: Array<{
-    species: string;
-    codeTfv: string;
-    areaHa: number;
-    priceEurM3: number | null;
-  }>;
-  rasterStats: {
-    agbd: RasterStat;
-    height: RasterStat;
-    wvd: RasterStat;
-  } | null;
-  forestChange: {
-    treecover2000_mean: number;
-    loss_area_ha_by_year: Record<number, number>;
-    gain_area_ha: number;
-    net_change_ha: number;
-  } | null;
-  lidar: {
-    mean_height: number;
-    max_height: number;
-    p50: number;
-    p75: number;
-    p95: number;
-    point_density: number;
-  } | null;
-  standingVolumeM3: number;
-  estimatedValueEur: number;
-  carbonStockTCO2e: number;
-  geometry?: GeoJsonObject;
-};
-
-type SearchResults = {
-  communes: Array<{ id: string; name: string }>;
-  lieuxDits: Array<{ id: number; name: string; communeId: string }>;
-};
-
-type DrawnPolygon = GeoJSONFeature<GeoJSONPolygon | GeoJSONMultiPolygon>;
-
-type PolygonStatsSource = 'polygon' | 'admin' | null;
-
-type HeightGridCell = GeoJSONFeature<
-  GeoJSONPolygon | GeoJSONMultiPolygon,
-  {
-    id: string;
-    meanHeightM: number;
-    row: number;
-    col: number;
-  }
->;
-
-type HeightGridResponse = {
-  type: 'FeatureCollection';
-  features: HeightGridCell[];
-  meta: {
-    year: number;
-    cellSizeM: number;
-    cellCount: number;
-    unit: string;
-  };
-};
-
-type DeckExtrusionDatum = GeoJSONFeature<
-  GeoJSONPolygon | GeoJSONMultiPolygon,
-  {
-    id: string;
-    meanHeightM: number;
-    row: number;
-    col: number;
-    elevationM: number;
-  }
->;
+import {
+  FeatureCollection,
+  Region,
+  Department,
+  Commune,
+  LieuDit,
+  ForestClass,
+  MapState,
+  RasterStat,
+  PolygonStats,
+  SearchResults,
+  DrawnPolygon,
+  PolygonStatsSource,
+  HeightGridCell,
+  HeightGridResponse,
+  DeckExtrusionDatum,
+} from '@/features/map/types/map.types';
+import {
+  EXTRUSION_HEIGHT_SCALE,
+  EXTRUSION_MIN_HEIGHT_M,
+  EXTRUSION_MAX_HEIGHT_M,
+  EXTRUSION_GRID_YEAR,
+  EXTRUSION_GRID_CELL_SIZE_M,
+  EXTRUSION_GRID_MAX_CELLS,
+  FOREST_CLASS_COLORS,
+  EMPTY_FC,
+  getBboxFromFeatureCollection,
+  fetchJson,
+  buildDeckExtrusionData,
+} from '@/features/map/utils/map.utils';
+import { downloadCSV as utilsDownloadCSV, downloadPDF as utilsDownloadPDF } from '@/features/map/utils/export.utils';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
-
-const EMPTY_FC: FeatureCollection = {
-  type: 'FeatureCollection',
-  features: [],
-};
-
-const EXTRUSION_HEIGHT_SCALE = 8;
-const EXTRUSION_MIN_HEIGHT_M = 12;
-const EXTRUSION_MAX_HEIGHT_M = 350;
-const EXTRUSION_GRID_YEAR = 2024;
-const EXTRUSION_GRID_CELL_SIZE_M = 40;
-const EXTRUSION_GRID_MAX_CELLS = 250000;
-
-// Color palette for TFV_G11 classes
-const FOREST_CLASS_COLORS = [
-  '#1b9e77',
-  '#d95f02',
-  '#7570b3',
-  '#e7298a',
-  '#66a61e',
-  '#e6ab02',
-  '#a6761d',
-  '#666666',
-  '#8c564b',
-  '#17becf',
-  '#9467bd',
-];
-
-function getBboxFromFeatureCollection(
-  fc: FeatureCollection,
-): [number, number, number, number] | null {
-  if (!fc.features || fc.features.length === 0) return null;
-
-  const coords: number[][] = [];
-
-  const extract = (geom: GeoJsonObject) => {
-    if (!geom) return;
-    const type = geom.type;
-    const coordinates = (geom as any).coordinates;
-
-    if (type === 'Point') {
-      coords.push(coordinates);
-    } else if (type === 'MultiPoint' || type === 'LineString') {
-      coordinates.forEach((c: number[]) => coords.push(c));
-    } else if (type === 'MultiLineString' || type === 'Polygon') {
-      coordinates.forEach((ring: number[][]) =>
-        ring.forEach((c) => coords.push(c)),
-      );
-    } else if (type === 'MultiPolygon') {
-      coordinates.forEach((poly: number[][][]) =>
-        poly.forEach((ring: number[][]) =>
-          ring.forEach((c: number[]) => coords.push(c)),
-        ),
-      );
-    }
-  };
-
-  fc.features.forEach((f) => extract(f.geometry));
-  if (coords.length === 0) return null;
-
-  let [minX, minY] = coords[0];
-  let [maxX, maxY] = coords[0];
-
-  coords.forEach(([x, y]) => {
-    if (x < minX) minX = x;
-    if (y < minY) minY = y;
-    if (x > maxX) maxX = x;
-    if (y > maxY) maxY = y;
-  });
-
-  return [minX, minY, maxX, maxY];
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
-  return (await res.json()) as T;
-}
-
-function buildDeckExtrusionData(
-  heightGrid: HeightGridResponse | null,
-): DeckExtrusionDatum[] {
-  if (!heightGrid?.features || heightGrid.features.length === 0) {
-    return [];
-  }
-
-  return heightGrid.features
-    .map((feature, index) => {
-      const geometry = feature.geometry;
-      if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) {
-        return null;
-      }
-
-      const meanHeightM = Number(feature.properties?.meanHeightM ?? 0);
-      if (!Number.isFinite(meanHeightM) || meanHeightM <= 0) {
-        return null;
-      }
-
-      const elevationM = Math.min(
-        EXTRUSION_MAX_HEIGHT_M,
-        Math.max(EXTRUSION_MIN_HEIGHT_M, meanHeightM * EXTRUSION_HEIGHT_SCALE),
-      );
-
-      return {
-        type: 'Feature',
-        geometry,
-        properties: {
-          id: feature.properties?.id ?? `drawn-grid-cell-${index}`,
-          meanHeightM,
-          row: Number(feature.properties?.row ?? 0),
-          col: Number(feature.properties?.col ?? 0),
-          elevationM,
-        },
-      };
-    })
-    .filter((item): item is DeckExtrusionDatum => item !== null);
-}
 
 export default function MapPage() {
   // --- Refs for map + DOM ---
@@ -932,97 +717,7 @@ export default function MapPage() {
     }
   }
 
-  function downloadCSV() {
-    if (!polygonStats) return;
-    const rows = [
-      ['Category', 'Metric', 'Value', 'Unit'],
-      ['General', 'Total Area', formatFixed(polygonStats.areaHa, 2, '0.00'), 'ha'],
-      ['General', 'Forest Area', formatFixed(polygonStats.totalForestAreaHa, 2, '0.00'), 'ha'],
-      ['Economics', 'Standing Volume', formatInteger(polygonStats.standingVolumeM3, '0'), 'm3'],
-      ['Economics', 'Estimated Value', formatInteger(polygonStats.estimatedValueEur, '0'), 'EUR'],
-      ['Climate', 'Carbon Stock', formatInteger(polygonStats.carbonStockTCO2e, '0'), 'tCO2e'],
-    ];
 
-    polygonStats.treeSpecies.forEach(s => {
-      rows.push(['Species', s.species, formatFixed(s.areaHa, 2, '0.00'), 'ha']);
-    });
-
-    if (polygonStats.rasterStats) {
-      rows.push(['Raster', 'AGBD Mean', formatFixed(polygonStats.rasterStats.agbd.mean, 2, '0.00'), 'Mg/ha']);
-      rows.push(['Raster', 'Height Mean', formatFixed(polygonStats.rasterStats.height.mean, 2, '0.00'), 'm']);
-      rows.push(['Raster', 'WVD Mean', formatFixed(polygonStats.rasterStats.wvd.mean, 2, '0.00'), 'm3/ha']);
-    }
-
-    const csvContent = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `forest_report_${new Date().toISOString().slice(0,10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  function downloadPDF() {
-    if (!polygonStats) return;
-    const doc = new jsPDF();
-    const date = new Date().toLocaleDateString();
-
-    doc.setFontSize(18);
-    doc.text('Forest Analytics Report', 14, 20);
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${date}`, 14, 28);
-    doc.text(`Total Area: ${formatFixed(polygonStats.areaHa, 2, '0.00')} ha`, 14, 34);
-
-    // Summary Table
-    autoTable(doc, {
-      startY: 40,
-      head: [['Metric', 'Value', 'Unit']],
-      body: [
-        ['Standing Volume', formatInteger(polygonStats.standingVolumeM3, '0'), 'm³'],
-        ['Estimated Value', `€${formatGroupedInteger(polygonStats.estimatedValueEur, '0')}`, 'EUR'],
-        ['Carbon Stock', formatInteger(polygonStats.carbonStockTCO2e, '0'), 'tCO₂e'],
-        ['Forest Area', formatFixed(polygonStats.totalForestAreaHa, 2, '0.00'), 'ha'],
-      ],
-    });
-
-    // Species Table
-    doc.setFontSize(14);
-    doc.text('Tree Species Distribution', 14, (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15);
-    autoTable(doc, {
-      startY: (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20,
-      head: [['Species', 'Code TFV', 'Area (ha)', 'Price (€/m³)']],
-      body: polygonStats.treeSpecies.map(s => [
-        s.species,
-        s.codeTfv,
-        formatFixed(s.areaHa, 2, '0.00'),
-        s.priceEurM3?.toString() || 'N/A'
-      ]),
-    });
-
-    // Raster Stats
-    if (polygonStats.rasterStats) {
-      doc.setFontSize(14);
-      doc.text('Biomass & Structure (FORMS-T)', 14, (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15);
-      autoTable(doc, {
-        startY: (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20,
-        head: [['Variable', 'Mean', 'Min', 'Max', 'Unit']],
-        body: [
-          ['AGBD', formatFixed(polygonStats.rasterStats.agbd.mean, 1, '0.0'), formatFixed(polygonStats.rasterStats.agbd.min, 1, '0.0'), formatFixed(polygonStats.rasterStats.agbd.max, 1, '0.0'), 'Mg/ha'],
-          ['Height', formatFixed(polygonStats.rasterStats.height.mean, 1, '0.0'), formatFixed(polygonStats.rasterStats.height.min, 1, '0.0'), formatFixed(polygonStats.rasterStats.height.max, 1, '0.0'), 'm'],
-          ['WVD', formatFixed(polygonStats.rasterStats.wvd.mean, 1, '0.0'), formatFixed(polygonStats.rasterStats.wvd.min, 1, '0.0'), formatFixed(polygonStats.rasterStats.wvd.max, 1, '0.0'), 'm³/ha'],
-        ],
-      });
-    }
-
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text('Data Sources: IGN BD Forêt V2, FORMS-T, Hansen GFC, IGN LiDAR HD. Indicative use only.', 14, doc.internal.pageSize.height - 10);
-
-    doc.save(`forest_report_${new Date().toISOString().slice(0,10)}.pdf`);
-  }
 
   function clearDrawnPolygon() {
     handleDrawDelete();
@@ -2983,7 +2678,7 @@ export default function MapPage() {
         {polygonStats && (
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
             <button
-              onClick={downloadPDF}
+              onClick={() => utilsDownloadPDF(polygonStats)}
               style={{
                 flex: 1,
                 padding: '4px 6px',
@@ -2997,7 +2692,7 @@ export default function MapPage() {
               📄 PDF Report
             </button>
             <button
-              onClick={downloadCSV}
+              onClick={() => utilsDownloadCSV(polygonStats)}
               style={{
                 flex: 1,
                 padding: '4px 6px',
