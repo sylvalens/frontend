@@ -1533,18 +1533,18 @@ export default function MapPage() {
       }
     };
 
-    map.on('draw.create' as any, createHandler);
-    map.on('draw.update' as any, updateHandler);
-    map.on('draw.selectionchange' as any, selectionChangeHandler);
-    map.on('draw.delete' as any, deleteHandler);
-    map.on('draw.modechange' as any, modeChangeHandler);
+    map.on('draw.create' as Parameters<typeof map.on>[0], createHandler);
+    map.on('draw.update' as Parameters<typeof map.on>[0], updateHandler);
+    map.on('draw.selectionchange' as Parameters<typeof map.on>[0], selectionChangeHandler);
+    map.on('draw.delete' as Parameters<typeof map.on>[0], deleteHandler);
+    map.on('draw.modechange' as Parameters<typeof map.on>[0], modeChangeHandler);
 
     return () => {
-      map.off('draw.create' as any, createHandler);
-      map.off('draw.update' as any, updateHandler);
-      map.off('draw.selectionchange' as any, selectionChangeHandler);
-      map.off('draw.delete' as any, deleteHandler);
-      map.off('draw.modechange' as any, modeChangeHandler);
+      map.off('draw.create' as Parameters<typeof map.off>[0], createHandler);
+      map.off('draw.update' as Parameters<typeof map.off>[0], updateHandler);
+      map.off('draw.selectionchange' as Parameters<typeof map.off>[0], selectionChangeHandler);
+      map.off('draw.delete' as Parameters<typeof map.off>[0], deleteHandler);
+      map.off('draw.modechange' as Parameters<typeof map.off>[0], modeChangeHandler);
       if (drawRef.current) {
         map.removeControl(drawRef.current);
         drawRef.current = null;
@@ -1601,14 +1601,14 @@ export default function MapPage() {
           filled: true,
           stroked: true,
           wireframe: true,
-          getElevation: (feature: any) => feature.properties?.elevationM ?? 0,
+          getElevation: (feature: DeckExtrusionDatum) => feature.properties?.elevationM ?? 0,
           material: {
             ambient: 0.28,
             diffuse: 0.72,
             shininess: 18,
             specularColor: [210, 210, 210],
           },
-          getFillColor: (feature: any) => {
+          getFillColor: (feature: DeckExtrusionDatum) => {
             const meanHeightM = Number(feature.properties?.meanHeightM ?? 0);
             const normalized = Math.max(0, Math.min(1, meanHeightM / 40));
 
