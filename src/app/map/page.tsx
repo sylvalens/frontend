@@ -1611,16 +1611,16 @@ export default function MapPage() {
           filled: true,
           stroked: true,
           wireframe: true,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          getElevation: ((feature: DeckExtrusionDatum) => feature.properties?.elevationM ?? 0) as any,
+          // @ts-expect-error DeckGL typing mismatch for accessors
+          getElevation: (feature: DeckExtrusionDatum) => feature.properties?.elevationM ?? 0,
           material: {
             ambient: 0.28,
             diffuse: 0.72,
             shininess: 18,
             specularColor: [210, 210, 210],
           },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          getFillColor: ((feature: DeckExtrusionDatum) => {
+          // @ts-expect-error DeckGL typing mismatch for accessors
+          getFillColor: (feature: DeckExtrusionDatum) => {
             const meanHeightM = Number(feature.properties?.meanHeightM ?? 0);
             const normalized = Math.max(0, Math.min(1, meanHeightM / 40));
 
@@ -1630,7 +1630,7 @@ export default function MapPage() {
               Math.round(35 + 20 * (1 - normalized)),
               190,
             ];
-          }) as any,
+          },
           getLineColor: [248, 250, 252, 220],
           lineWidthMinPixels: 1,
           pickable: true,
