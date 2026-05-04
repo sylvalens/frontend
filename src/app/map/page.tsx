@@ -1533,18 +1533,28 @@ export default function MapPage() {
       }
     };
 
-    map.on('draw.create' as Parameters<typeof map.on>[0], createHandler);
-    map.on('draw.update' as Parameters<typeof map.on>[0], updateHandler);
-    map.on('draw.selectionchange' as Parameters<typeof map.on>[0], selectionChangeHandler);
-    map.on('draw.delete' as Parameters<typeof map.on>[0], deleteHandler);
-    map.on('draw.modechange' as Parameters<typeof map.on>[0], modeChangeHandler);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    map.on('draw.create' as any, createHandler as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    map.on('draw.update' as any, updateHandler as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    map.on('draw.selectionchange' as any, selectionChangeHandler as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    map.on('draw.delete' as any, deleteHandler as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    map.on('draw.modechange' as any, modeChangeHandler as any);
 
     return () => {
-      map.off('draw.create' as Parameters<typeof map.off>[0], createHandler);
-      map.off('draw.update' as Parameters<typeof map.off>[0], updateHandler);
-      map.off('draw.selectionchange' as Parameters<typeof map.off>[0], selectionChangeHandler);
-      map.off('draw.delete' as Parameters<typeof map.off>[0], deleteHandler);
-      map.off('draw.modechange' as Parameters<typeof map.off>[0], modeChangeHandler);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.off('draw.create' as any, createHandler as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.off('draw.update' as any, updateHandler as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.off('draw.selectionchange' as any, selectionChangeHandler as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.off('draw.delete' as any, deleteHandler as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.off('draw.modechange' as any, modeChangeHandler as any);
       if (drawRef.current) {
         map.removeControl(drawRef.current);
         drawRef.current = null;
@@ -1601,14 +1611,16 @@ export default function MapPage() {
           filled: true,
           stroked: true,
           wireframe: true,
-          getElevation: (feature: DeckExtrusionDatum) => feature.properties?.elevationM ?? 0,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          getElevation: ((feature: DeckExtrusionDatum) => feature.properties?.elevationM ?? 0) as any,
           material: {
             ambient: 0.28,
             diffuse: 0.72,
             shininess: 18,
             specularColor: [210, 210, 210],
           },
-          getFillColor: (feature: DeckExtrusionDatum) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          getFillColor: ((feature: DeckExtrusionDatum) => {
             const meanHeightM = Number(feature.properties?.meanHeightM ?? 0);
             const normalized = Math.max(0, Math.min(1, meanHeightM / 40));
 
@@ -1618,7 +1630,7 @@ export default function MapPage() {
               Math.round(35 + 20 * (1 - normalized)),
               190,
             ];
-          },
+          }) as any,
           getLineColor: [248, 250, 252, 220],
           lineWidthMinPixels: 1,
           pickable: true,
