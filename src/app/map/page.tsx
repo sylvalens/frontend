@@ -1386,7 +1386,10 @@ export default function MapPage() {
       // We don't fetch the whole GeoJSON anymore.
 
       // Department coverage choropleth layer
-      fetchJson<FeatureCollection>(`${API_BASE}/map/departments-coverage`)
+      fetchJson<FeatureCollection>(`${API_BASE}/map/departments-coverage`, {
+        // Allow browser/proxy caching for this static-ish choropleth payload.
+        cache: 'default',
+      })
         .then((fc) => {
           const src = map.getSource('deptCoverage') as mapboxgl.GeoJSONSource;
           if (src) src.setData(fc);
